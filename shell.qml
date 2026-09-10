@@ -2,6 +2,7 @@
 
 import Quickshell
 import "modules/app_launcher"
+import "modules/clipboard"
 
 ShellRoot {
     Variants {
@@ -11,4 +12,6 @@ ShellRoot {
             screen: modelData
         }
     }
+
+    Clipboard {}
 }
