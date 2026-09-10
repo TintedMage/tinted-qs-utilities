@@ -1,12 +1,9 @@
+// Shell.qml
+
 import Quickshell
-import Quickshell.Io
-import "bar"
-import "app_launcher"
-import "clipboard"
+import "modules/app_launcher"
 
 ShellRoot {
-    // BottomBar {}
-
     Variants {
         model: Quickshell.screens
         AppLauncher {
@@ -14,7 +11,4 @@ ShellRoot {
             screen: modelData
         }
     }
-
-    Border{}
-    Clipboard {}
 }

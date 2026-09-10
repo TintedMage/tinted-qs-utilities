@@ -1,4 +1,4 @@
-// AppLauncher.qml
+// modules/app_launcher/AppLauncher.qml
 
 import Quickshell
 import Quickshell.Wayland
@@ -45,28 +45,54 @@ PanelWindow {
     // UI state
     property int selectedIndex: 0
 
-    // Theme properties
-    readonly property color accentFill: Qt.rgba(Colors.colAccent.r, Colors.colAccent.g, Colors.colAccent.b, 0.18)
-    readonly property color accentIcon: Qt.rgba(Colors.colAccent.r, Colors.colAccent.g, Colors.colAccent.b, 0.28)
+    // Cached UI scale and derived metrics. Keeping these in one place avoids
+    // repeatedly resolving the same configuration bindings throughout the tree.
+    readonly property real uiScale: Config.uiScale
+    readonly property int itemH: (AppLauncherConfig.iconSize + (AppLauncherConfig.padY * 2)) * uiScale
+    readonly property int launcherW: AppLauncherConfig.width * uiScale
+    readonly property int launcherH: AppLauncherConfig.height * uiScale
+    readonly property int radiusScaled: AppLauncherConfig.radius * uiScale
+    readonly property int scaledPadX: AppLauncherConfig.padX * uiScale
+    readonly property int scaledPadY: AppLauncherConfig.padY * uiScale
+    readonly property int scaledFontSize: AppLauncherConfig.fontSize * uiScale
+    readonly property int scaledIconSize: AppLauncherConfig.iconSize * uiScale
 
-    // Layout metrics
-    readonly property int itemH: (Config.launcherIconSize + (Config.launcherPadY * 2)) * Config.uiScale
-    readonly property int launcherW: Config.launcherWidth * Config.uiScale
-    readonly property int launcherH: Config.launcherHeight * Config.uiScale
-    readonly property int radiusScaled: Config.launcherRadius * Config.uiScale
+    // Cached theme colors used frequently by delegates/effects.
+    readonly property color accentFill: Qt.rgba(Theme.colAccent.r, Theme.colAccent.g, Theme.colAccent.b, 0.18)
+    readonly property color accentIcon: Qt.rgba(Theme.colAccent.r, Theme.colAccent.g, Theme.colAccent.b, 0.28)
+    readonly property color white07: Qt.rgba(Theme.colWhite.r, Theme.colWhite.g, Theme.colWhite.b, 0.07)
+    readonly property color white08: Qt.rgba(Theme.colWhite.r, Theme.colWhite.g, Theme.colWhite.b, 0.08)
+    readonly property color white22: Qt.rgba(Theme.colWhite.r, Theme.colWhite.g, Theme.colWhite.b, 0.22)
 
     // Launch selected application
     function launchSelected() {
-        if (AppLauncherState.currentModel.length > 0) {
-            AppLauncherState.launch(AppLauncherState.currentModel[selectedIndex].id)
-        }
+        const model = AppLauncherState.currentModel
+        const count = model.length
+
+        if (count === 0)
+            return
+
+        const index = Math.max(0, Math.min(selectedIndex, count - 1))
+        const entry = model[index]
+
+        if (entry)
+            AppLauncherState.launch(entry.id)
     }
 
     // Navigate through list
     function navigate(delta) {
-        if (AppLauncherState.currentModel.length === 0) return
-        selectedIndex = Math.max(0, Math.min(selectedIndex + delta, AppLauncherState.currentModel.length - 1))
-        listView.positionViewAtIndex(selectedIndex, ListView.Contain)
+        const count = AppLauncherState.currentModel.length
+
+        if (count === 0)
+            return
+
+        const nextIndex = Math.max(0, Math.min(selectedIndex + delta, count - 1))
+
+        if (nextIndex === selectedIndex)
+            return
+
+        selectedIndex = nextIndex
+        listView.positionViewAtIndex(nextIndex, ListView.Contain)
     }
 
     // Reset UI state when data or visibility changes
@@ -102,12 +128,12 @@ PanelWindow {
         height: root.launcherH
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
-        color: Qt.rgba(Colors.colBg.r, Colors.colBg.g, Colors.colBg.b, Config.bgOpacity)
+        color: Qt.rgba(Theme.colBg.r, Theme.colBg.g, Theme.colBg.b, Theme.backgroundOpacity)
         topLeftRadius: root.radiusScaled + 10
         topRightRadius: root.radiusScaled + 10
         bottomLeftRadius: 0
         bottomRightRadius: 0
-        border.color: Qt.alpha(Colors.colFg, 0.2)
+        border.color: Qt.alpha(Theme.colFg, 0.2)
         border.width: 2
 
         // Intercept clicks inside launcher container
@@ -118,21 +144,21 @@ PanelWindow {
 
         // Slide up/down animation
         transform: Translate {
-            y: AppLauncherState.isVisible ? 0 : root.launcherH + (6 * Config.uiScale)
+            y: AppLauncherState.isVisible ? 0 : root.launcherH + (6 * root.uiScale)
             Behavior on y { NumberAnimation { duration: 500; easing.type: Easing.OutCubic } }
         }
 
         Column {
-            anchors { fill: parent; margins: 16 * Config.uiScale }
-            spacing: 8 * Config.uiScale
+            anchors { fill: parent; margins: 16 * root.uiScale }
+            spacing: 8 * root.uiScale
 
             // Header with wallpaper and search
             ClippingRectangle {
                 id: header
                 width: parent.width
-                height: 180 * Config.uiScale
+                height: 180 * root.uiScale
                 radius: root.radiusScaled
-                color: Qt.rgba(Colors.colWhite.r, Colors.colWhite.g, Colors.colWhite.b, 0.07)
+                color: root.white07
 
                 // Close settings popup when cursor leaves wallpaper header area
                 HoverHandler {
@@ -186,10 +212,10 @@ PanelWindow {
                     anchors {
                         top: parent.top
                         right: parent.right
-                        margins: 12 * Config.uiScale
+                        margins: 12 * root.uiScale
                     }
-                    width: 32 * Config.uiScale
-                    height: 32 * Config.uiScale
+                    width: 32 * root.uiScale
+                    height: 32 * root.uiScale
                     z: 10
 
                     property color dynamicColor: "#ffffff"
@@ -228,11 +254,11 @@ PanelWindow {
                         anchors.centerIn: parent
                         text: "\uf013"
                         color: settingsMouse.containsMouse || settingsPopup.open
-                        ? Qt.rgba(Colors.colAccent.r, Colors.colAccent.g, Colors.colAccent.b, 1.0)
+                        ? Qt.rgba(Theme.colAccent.r, Theme.colAccent.g, Theme.colAccent.b, 1.0)
                         : settingsBtn.dynamicColor
                         font {
-                            pixelSize: 20 * Config.uiScale
-                            family: Config.fontFamily
+                            pixelSize: 20 * root.uiScale
+                            family: Theme.fontFamily
                         }
 
                         Behavior on color { ColorAnimation { duration: 150 } }
@@ -254,15 +280,15 @@ PanelWindow {
 
                     anchors {
                         top: settingsBtn.bottom
-                        topMargin: 4 * Config.uiScale
+                        topMargin: 4 * root.uiScale
                         right: settingsBtn.right
                     }
-                    width: 130 * Config.uiScale
-                    height: 36 * Config.uiScale
-                    radius: 8 * Config.uiScale
+                    width: 130 * root.uiScale
+                    height: 36 * root.uiScale
+                    radius: 8 * root.uiScale
                     z: 100
-                    color: Qt.rgba(Colors.colBg.r, Colors.colBg.g, Colors.colBg.b, 0.95)
-                    border.color: Qt.rgba(Colors.colAccent.r, Colors.colAccent.g, Colors.colAccent.b, 0.3)
+                    color: Qt.rgba(Theme.colBg.r, Theme.colBg.g, Theme.colBg.b, 0.95)
+                    border.color: Qt.rgba(Theme.colAccent.r, Theme.colAccent.g, Theme.colAccent.b, 0.3)
                     border.width: 1
 
                     opacity: open ? 1.0 : 0.0
@@ -274,19 +300,19 @@ PanelWindow {
 
                     Rectangle {
                         anchors.fill: parent
-                        anchors.margins: 4 * Config.uiScale
-                        radius: 6 * Config.uiScale
+                        anchors.margins: 4 * root.uiScale
+                        radius: 6 * root.uiScale
                         color: clearMouse.containsMouse
-                        ? Qt.rgba(Colors.colWhite.r, Colors.colWhite.g, Colors.colWhite.b, 0.1)
+                        ? Qt.rgba(Theme.colWhite.r, Theme.colWhite.g, Theme.colWhite.b, 0.1)
                         : "transparent"
 
                         Text {
                             anchors.centerIn: parent
                             text: "Clear recent"
-                            color: Qt.rgba(Colors.colFg.r, Colors.colFg.g, Colors.colFg.b, 0.9)
+                            color: Qt.rgba(Theme.colFg.r, Theme.colFg.g, Theme.colFg.b, 0.9)
                             font {
-                                pixelSize: 12 * Config.uiScale
-                                family: Config.fontFamily
+                                pixelSize: 12 * root.uiScale
+                                family: Theme.fontFamily
                             }
                         }
 
@@ -310,13 +336,13 @@ PanelWindow {
                         bottom: parent.bottom
                         left: parent.left
                         right: parent.right
-                        margins: 12 * Config.uiScale
+                        margins: 12 * root.uiScale
                     }
 
-                    height: 44 * Config.uiScale
+                    height: 44 * root.uiScale
                     radius: 30
-                    color: Qt.rgba(Colors.colWhite.r, Colors.colWhite.g, Colors.colWhite.b, 0.8)
-                    border.color: Qt.rgba(Colors.colAccent.r, Colors.colAccent.g, Colors.colAccent.b, 0.9)
+                    color: Qt.rgba(Theme.colWhite.r, Theme.colWhite.g, Theme.colWhite.b, 0.8)
+                    border.color: Qt.rgba(Theme.colAccent.r, Theme.colAccent.g, Theme.colAccent.b, 0.9)
                     border.width: 1
 
                     // Downsampled texture capture for low-overhead QML blur
@@ -362,11 +388,11 @@ PanelWindow {
                     Row {
                         anchors {
                             fill: parent
-                            leftMargin: Config.launcherPadX * Config.uiScale
-                            rightMargin: Config.launcherPadX * Config.uiScale
+                            leftMargin: root.scaledPadX
+                            rightMargin: root.scaledPadX
                         }
 
-                        spacing: 10 * Config.uiScale
+                        spacing: 10 * root.uiScale
 
                         Item {
                             width: parent.width
@@ -375,11 +401,11 @@ PanelWindow {
                             Text {
                                 anchors.fill: parent
                                 text: AppLauncherState.isSearching ? "" : "Search apps…"
-                                color: Colors.colWhite
+                                color: Theme.colWhite
 
                                 font {
-                                    pixelSize: Config.launcherFontSize * Config.uiScale
-                                    family: Config.fontFamily
+                                    pixelSize: root.scaledFontSize
+                                    family: Theme.fontFamily
                                 }
 
                                 verticalAlignment: Text.AlignVCenter
@@ -390,12 +416,12 @@ PanelWindow {
                                 id: searchInput
 
                                 anchors.fill: parent
-                                color: Colors.colFg
+                                color: Theme.colFg
                                 selectionColor: root.accentFill
 
                                 font {
-                                    pixelSize: Config.launcherFontSize * Config.uiScale
-                                    family: Config.fontFamily
+                                    pixelSize: root.scaledFontSize
+                                    family: Theme.fontFamily
                                 }
 
                                 verticalAlignment: TextInput.AlignVCenter
@@ -427,11 +453,11 @@ PanelWindow {
 
             // Drag handle / decorative separator
             Rectangle {
-                width: 36 * Config.uiScale
-                height: 4 * Config.uiScale
-                radius: 2 * Config.uiScale
+                width: 36 * root.uiScale
+                height: 4 * root.uiScale
+                radius: 2 * root.uiScale
                 anchors.horizontalCenter: parent.horizontalCenter
-                color: Qt.rgba(Colors.colWhite.r, Colors.colWhite.g, Colors.colWhite.b, 0.22)
+                color: root.white22
             }
 
             // Application list
@@ -447,35 +473,35 @@ PanelWindow {
                 ScrollBar.vertical: ScrollBar {
                     id: vbar
                     active: true
-                    width: 16 * Config.uiScale
+                    width: 16 * root.uiScale
                     padding: 0
-                    leftPadding: 10 * Config.uiScale
+                    leftPadding: 10 * root.uiScale
 
                     background: Rectangle {
                         anchors.right: parent.right
-                        width: 6 * Config.uiScale
-                        color: Qt.rgba(Colors.colFg.r, Colors.colFg.g, Colors.colFg.b, 0.05)
-                        radius: 3 * Config.uiScale
+                        width: 6 * root.uiScale
+                        color: Qt.rgba(Theme.colFg.r, Theme.colFg.g, Theme.colFg.b, 0.05)
+                        radius: 3 * root.uiScale
                     }
 
                     contentItem: Rectangle {
-                        implicitWidth: 6 * Config.uiScale
-                        implicitHeight: 30 * Config.uiScale
-                        radius: 3 * Config.uiScale
-                        color: vbar.pressed ? Colors.colAccent : Qt.rgba(Colors.colAccent.r, Colors.colAccent.g, Colors.colAccent.b, 0.7)
+                        implicitWidth: 6 * root.uiScale
+                        implicitHeight: 30 * root.uiScale
+                        radius: 3 * root.uiScale
+                        color: vbar.pressed ? Theme.colAccent : Qt.rgba(Theme.colAccent.r, Theme.colAccent.g, Theme.colAccent.b, 0.7)
                     }
                 }
 
                 // Empty search state
                 Text {
                     anchors.centerIn: parent
-                    visible: AppLauncherState.currentModel.length === 0
+                    visible: listView.count === 0
                     text: "No apps found"
-                    color: Colors.colFgDim
+                    color: Theme.colFgDim
 
                     font {
-                        pixelSize: Config.launcherFontSize * Config.uiScale
-                        family: Config.fontFamily
+                        pixelSize: root.scaledFontSize
+                        family: Theme.fontFamily
                     }
                 }
 
@@ -488,8 +514,9 @@ PanelWindow {
                     required property var modelData
                     required property int index
 
+                    readonly property var app: modelData
                     readonly property bool sel: root.selectedIndex === index
-                    readonly property bool isRecent: !AppLauncherState.isSearching && AppLauncherState.recentIds.indexOf(modelData.id) !== -1
+                    readonly property bool isRecent: !AppLauncherState.isSearching && AppLauncherState.recentIds.indexOf(app.id) !== -1
 
                     Rectangle {
                         anchors.fill: parent
@@ -503,17 +530,17 @@ PanelWindow {
                         Row {
                             anchors {
                                 fill: parent
-                                leftMargin: Config.launcherPadX * Config.uiScale
-                                rightMargin: Config.launcherPadX * Config.uiScale
+                                leftMargin: root.scaledPadX
+                                rightMargin: root.scaledPadX
                             }
 
-                            spacing: 12 * Config.uiScale
+                            spacing: 12 * root.uiScale
 
                             // App icon container
                             Rectangle {
-                                width: Config.launcherIconSize * Config.uiScale
-                                height: Config.launcherIconSize * Config.uiScale
-                                radius: Math.max(0, root.radiusScaled - (2 * Config.uiScale))
+                                width: root.scaledIconSize
+                                height: root.scaledIconSize
+                                radius: Math.max(0, root.radiusScaled - (2 * root.uiScale))
                                 anchors.verticalCenter: parent.verticalCenter
 
                                 color: appIcon.status === Image.Ready
@@ -521,9 +548,9 @@ PanelWindow {
                                 : (appRow.sel
                                     ? root.accentIcon
                                     : Qt.rgba(
-                                        Colors.colWhite.r,
-                                        Colors.colWhite.g,
-                                        Colors.colWhite.b,
+                                        Theme.colWhite.r,
+                                        Theme.colWhite.g,
+                                        Theme.colWhite.b,
                                         0.08
                                 ))
 
@@ -534,9 +561,9 @@ PanelWindow {
                                 Image {
                                     id: appIcon
                                     anchors.centerIn: parent
-                                    width: Config.launcherIconSize * 0.65 * Config.uiScale
-                                    height: Config.launcherIconSize * 0.65 * Config.uiScale
-                                    source: appRow.modelData.icon !== "" ? Quickshell.iconPath(appRow.modelData.icon, true) : ""
+                                    width: root.scaledIconSize * 0.65
+                                    height: root.scaledIconSize * 0.65
+                                    source: appRow.app.icon !== "" ? Quickshell.iconPath(appRow.app.icon, true) : ""
                                     smooth: true
                                     mipmap: true
                                     visible: status === Image.Ready
@@ -546,49 +573,49 @@ PanelWindow {
                                 Text {
                                     anchors.centerIn: parent
                                     visible: appIcon.status !== Image.Ready
-                                    text: appRow.modelData.name.charAt(0).toUpperCase()
+                                    text: appRow.app.name.charAt(0).toUpperCase()
 
                                     font {
-                                        pixelSize: (Config.launcherFontSize + 2) * Config.uiScale
-                                        family: Config.fontFamily
+                                        pixelSize: (AppLauncherConfig.fontSize + 2) * root.uiScale
+                                        family: Theme.fontFamily
                                         weight: Font.Bold
                                     }
 
-                                    color: appRow.sel ? Colors.colAccent : Colors.colFg
+                                    color: appRow.sel ? Theme.colAccent : Theme.colFg
                                 }
                             }
 
                             // App details
                             Column {
                                 anchors.verticalCenter: parent.verticalCenter
-                                spacing: 2 * Config.uiScale
+                                spacing: 2 * root.uiScale
 
                                 Text {
-                                    text: appRow.modelData.name
+                                    text: appRow.app.name
 
                                     font {
-                                        pixelSize: Config.launcherFontSize * Config.uiScale
-                                        family: Config.fontFamily
+                                        pixelSize: root.scaledFontSize
+                                        family: Theme.fontFamily
                                         weight: appRow.sel ? Font.Medium : Font.Normal
                                     }
 
-                                    color: appRow.sel ? Colors.colFg : Colors.colFgDim
+                                    color: appRow.sel ? Theme.colFg : Theme.colFgDim
                                 }
 
                                 Row {
-                                    spacing: 6 * Config.uiScale
-                                    visible: appRow.isRecent || appRow.modelData.genericName !== ""
+                                    spacing: 6 * root.uiScale
+                                    visible: appRow.isRecent || appRow.app.genericName !== ""
 
                                     // Recent label badge
                                     Rectangle {
                                         visible: appRow.isRecent
-                                        width: recentLabel.width + (8 * Config.uiScale)
-                                        height: (Config.launcherFontSize + 2) * Config.uiScale
-                                        radius: 4 * Config.uiScale
+                                        width: recentLabel.width + (8 * root.uiScale)
+                                        height: (AppLauncherConfig.fontSize + 2) * root.uiScale
+                                        radius: 4 * root.uiScale
                                         color: Qt.rgba(
-                                            Colors.colAccent.r,
-                                            Colors.colAccent.g,
-                                            Colors.colAccent.b,
+                                            Theme.colAccent.r,
+                                            Theme.colAccent.g,
+                                            Theme.colAccent.b,
                                             0.22
                                         )
 
@@ -601,30 +628,30 @@ PanelWindow {
 
                                             font {
                                                 pixelSize: Math.max(
-                                                    9 * Config.uiScale,
-                                                    (Config.launcherFontSize - 4) * Config.uiScale
+                                                    9 * root.uiScale,
+                                                    (AppLauncherConfig.fontSize - 4) * root.uiScale
                                                 )
-                                                family: Config.fontFamily
+                                                family: Theme.fontFamily
                                             }
 
-                                            color: Colors.colAccent
+                                            color: Theme.colAccent
                                         }
                                     }
 
                                     // App generic name (description)
                                     Text {
-                                        visible: appRow.modelData.genericName !== ""
-                                        text: appRow.modelData.genericName
+                                        visible: appRow.app.genericName !== ""
+                                        text: appRow.app.genericName
 
                                         font {
                                             pixelSize: Math.max(
-                                                10 * Config.uiScale,
-                                                (Config.launcherFontSize - 2) * Config.uiScale
+                                                10 * root.uiScale,
+                                                (AppLauncherConfig.fontSize - 2) * root.uiScale
                                             )
-                                            family: Config.fontFamily
+                                            family: Theme.fontFamily
                                         }
 
-                                        color: Colors.colFgDim
+                                        color: Theme.colFgDim
                                         anchors.verticalCenter: parent.verticalCenter
                                     }
                                 }
@@ -636,7 +663,7 @@ PanelWindow {
                             anchors.fill: parent
                             hoverEnabled: true
                             onEntered: root.selectedIndex = appRow.index
-                            onClicked: AppLauncherState.launch(appRow.modelData.id)
+                            onClicked: AppLauncherState.launch(appRow.app.id)
 
                             onWheel: function (wheel) {
                                 if (wheel.angleDelta.y < 0)
