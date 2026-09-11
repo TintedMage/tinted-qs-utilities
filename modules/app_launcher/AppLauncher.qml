@@ -128,6 +128,7 @@ PanelWindow {
         height: root.launcherH
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
+        anchors.bottomMargin: -2
         color: Qt.rgba(Theme.colBg.r, Theme.colBg.g, Theme.colBg.b, Theme.backgroundOpacity)
         topLeftRadius: root.radiusScaled + 10
         topRightRadius: root.radiusScaled + 10
@@ -135,6 +136,7 @@ PanelWindow {
         bottomRightRadius: 0
         border.color: Qt.alpha(Theme.colFg, 0.2)
         border.width: 2
+
 
         // Intercept clicks inside launcher container
         MouseArea {
