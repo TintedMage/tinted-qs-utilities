@@ -3,6 +3,7 @@
 import Quickshell
 import "modules/app_launcher"
 import "modules/clipboard"
+import "modules/panels"
 
 ShellRoot {
     Variants {
@@ -14,4 +15,8 @@ ShellRoot {
     }
 
     Clipboard {}
+
+    PanelBorder {}
+    TopCornerCurves {}
+    BottomCornerCurves {}
 }
