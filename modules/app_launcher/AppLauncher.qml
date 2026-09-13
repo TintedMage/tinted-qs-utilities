@@ -70,13 +70,13 @@ PanelWindow {
         const count = model.length
 
         if (count === 0)
-            return
+        return
 
         const index = Math.max(0, Math.min(selectedIndex, count - 1))
         const entry = model[index]
 
         if (entry)
-            AppLauncherState.launch(entry.id)
+        AppLauncherState.launch(entry.id)
     }
 
     // Navigate through list
@@ -84,12 +84,12 @@ PanelWindow {
         const count = AppLauncherState.currentModel.length
 
         if (count === 0)
-            return
+        return
 
         const nextIndex = Math.max(0, Math.min(selectedIndex + delta, count - 1))
 
         if (nextIndex === selectedIndex)
-            return
+        return
 
         selectedIndex = nextIndex
         listView.positionViewAtIndex(nextIndex, ListView.Contain)
@@ -137,7 +137,6 @@ PanelWindow {
         border.color: Qt.alpha(Theme.colFg, 0.2)
         border.width: 2
 
-
         // Intercept clicks inside launcher container
         MouseArea {
             anchors.fill: parent
@@ -151,7 +150,13 @@ PanelWindow {
         }
 
         Column {
-            anchors { fill: parent; margins: 16 * root.uiScale }
+            anchors {
+                fill: parent
+                topMargin: 16 * root.uiScale
+                leftMargin: 16 * root.uiScale
+                rightMargin: 16 * root.uiScale
+                bottomMargin: 0
+            }
             spacing: 8 * root.uiScale
 
             // Header with wallpaper and search
