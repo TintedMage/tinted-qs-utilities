@@ -1,19 +1,20 @@
-// modules/app_launcher/AppLauncherConfig.qml
+// modules/main_bar/widgets/app_launcher/AppLauncherSettings.qml
 
 pragma Singleton
+import QtQuick
 import QtCore
 import QtQml
+import qs.core.config
 
 QtObject {
     id: root
 
-    // ─────────────────────────────────────────────────────────────
     // AppLauncher configuration
-    // ─────────────────────────────────────────────────────────────
 
     readonly property int width: 550
     readonly property int height: 578
-    readonly property int radius: 18
+    readonly property real radius: Theme.radius
+    readonly property color fallbackBackgroundColor: "transparent"
 
     readonly property int fontSize: 12
     readonly property int iconSize: 48
@@ -23,12 +24,9 @@ QtObject {
 
     readonly property int maxRecentApps: 5
 
-    // ─────────────────────────────────────────────────────────────
     // Persistent AppLauncher data
-    //
     // The .conf file is storage, not a second configuration layer.
     // Static defaults live above; persistent user data lives here.
-    // ─────────────────────────────────────────────────────────────
 
     property var _settings: Settings {
         location: Qt.resolvedUrl("AppLauncher.conf")

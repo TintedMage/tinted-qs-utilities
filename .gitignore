@@ -1,1 +1,3 @@
-modules/app_launcher/AppLauncher.conf
+# .gitignore
+modules/main_bar/widgets/app_launcher/AppLauncher.conf
+.github

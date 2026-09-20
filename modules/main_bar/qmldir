@@ -1,0 +1,3 @@
+# modules/main_bar/qmldir
+singleton MainBarSettings 1.0 MainBarSettings.qml
+MainBar 1.0 MainBar.qml

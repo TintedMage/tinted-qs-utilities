@@ -1,0 +1,4 @@
+# modules/clipboard/qmldir
+Clipboard 1.0 Clipboard.qml
+singleton ClipboardSettings 1.0 ClipboardSettings.qml
+singleton ClipboardState 1.0 ClipboardState.qml

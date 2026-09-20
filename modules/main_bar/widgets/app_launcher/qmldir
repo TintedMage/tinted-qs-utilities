@@ -1,0 +1,4 @@
+# modules/main_bar/widgets/app_launcher/qmldir
+AppLauncher 1.0 AppLauncher.qml
+singleton AppLauncherSettings 1.0 AppLauncherSettings.qml
+singleton AppLauncherState 1.0 AppLauncherState.qml

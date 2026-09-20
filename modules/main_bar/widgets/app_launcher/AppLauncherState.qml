@@ -1,26 +1,38 @@
-// modules/app_launcher/AppLauncherState.qml
+// modules/main_bar/widgets/app_launcher/AppLauncherState.qml
 
 pragma Singleton
+import QtQuick
 import QtQml
 import Quickshell
-import qs.config
+import qs.core.config
 
 Singleton {
     id: root
 
-    // ─────────────────────────────────────────────────────────────
     // Runtime state
-    // ─────────────────────────────────────────────────────────────
 
     property bool isVisible: false
     property string searchQuery: ""
 
-    // Persistent launcher data/configuration is owned by AppLauncherConfig.
-    readonly property var recentIds: AppLauncherConfig.recentIds
+    // Shared with the main bar shader so the launcher is drawn
+    // as part of the bottom border. The panel draws the SHAPE, the launcher
+    // window draws the CONTENT; both read the same values below so they can
+    // never get out of step.
 
-    // ─────────────────────────────────────────────────────────────
+    readonly property real launcherWidth: AppLauncherSettings.width
+    readonly property real launcherHeight: AppLauncherSettings.height
+    readonly property real cornerRadius: AppLauncherSettings.radius + 10
+
+    // 0 = hidden, 1 = fully open. The single slide animation lives here.
+    property real reveal: isVisible ? 1 : 0
+    Behavior on reveal {
+        NumberAnimation { duration: 500; easing.type: Easing.OutCubic }
+    }
+
+    // Persistent launcher data/configuration is owned by AppLauncherSettings.
+    readonly property var recentIds: AppLauncherSettings.recentIds
+
     // Derived properties consumed by UI
-    // ─────────────────────────────────────────────────────────────
 
     readonly property string normalizedQuery: searchQuery.trim().toLowerCase()
     readonly property bool isSearching: normalizedQuery !== ""
@@ -97,9 +109,7 @@ Singleton {
         return recents.concat(others)
     }
 
-    // ─────────────────────────────────────────────────────────────
     // Actions
-    // ─────────────────────────────────────────────────────────────
 
     function toggle() {
         isVisible = !isVisible
@@ -130,7 +140,7 @@ Singleton {
     }
 
     function clearRecents() {
-        AppLauncherConfig._settings.recentIdsStr = "[]"
+        AppLauncherSettings._settings.recentIdsStr = "[]"
     }
 
     function _recordRecent(id) {
@@ -142,9 +152,9 @@ Singleton {
 
         list.unshift(id)
 
-        if (list.length > AppLauncherConfig.maxRecentApps)
-            list.length = AppLauncherConfig.maxRecentApps
+        if (list.length > AppLauncherSettings.maxRecentApps)
+            list.length = AppLauncherSettings.maxRecentApps
 
-        AppLauncherConfig._settings.recentIdsStr = JSON.stringify(list)
+        AppLauncherSettings._settings.recentIdsStr = JSON.stringify(list)
     }
 }

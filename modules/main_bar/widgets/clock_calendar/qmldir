@@ -1,0 +1,2 @@
+# modules/main_bar/widgets/clock_calendar/qmldir
+ClockCalendar 1.0 ClockCalendar.qml

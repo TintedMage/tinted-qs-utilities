@@ -6,7 +6,7 @@ import QtQuick.Controls
 import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Wayland
-import qs.config
+import qs.core.config
 
 Variants {
     model: Quickshell.screens
@@ -16,8 +16,8 @@ Variants {
         screen: modelData
 
         visible: ClipboardState.activeScreen === modelData
-        implicitWidth: ClipboardConfig.width
-        implicitHeight: ClipboardConfig.height
+        implicitWidth: ClipboardSettings.width
+        implicitHeight: ClipboardSettings.height
 
         WlrLayershell.namespace: "quickshell-clipboard"
         WlrLayershell.layer: WlrLayer.Overlay
@@ -30,7 +30,7 @@ Variants {
 
         // Local clipboard metrics and theme values.
         readonly property string fontFamily: Theme.fontFamily
-        readonly property real innerRadius: Math.max(2, ClipboardConfig.radius - ClipboardConfig.padX)
+        readonly property real innerRadius: Math.max(2, ClipboardSettings.radius - ClipboardSettings.padX)
         readonly property real buttonRadius: Math.max(2, root.innerRadius - 4)
 
         // Cached color palette to prevent constant re-evaluations
@@ -39,7 +39,7 @@ Variants {
         readonly property color cAccentHover: Qt.rgba(Theme.colAccent.r, Theme.colAccent.g, Theme.colAccent.b, 0.3)
         readonly property color cAccentBorder: Qt.rgba(Theme.colAccent.r, Theme.colAccent.g, Theme.colAccent.b, 0.5)
         readonly property color cAccentScroll: Qt.rgba(Theme.colAccent.r, Theme.colAccent.g, Theme.colAccent.b, 0.7)
-        readonly property color cBg: Qt.rgba(Theme.colBg.r, Theme.colBg.g, Theme.colBg.b, ClipboardConfig.backgroundOpacity)
+        readonly property color cBg: Qt.rgba(Theme.colBg.r, Theme.colBg.g, Theme.colBg.b, ClipboardSettings.backgroundOpacity)
         readonly property color cFg: Qt.rgba(Theme.colFg.r, Theme.colFg.g, Theme.colFg.b, 1.0)
         readonly property color cFgDim: Qt.rgba(Theme.colFgDim.r, Theme.colFgDim.g, Theme.colFgDim.b, 1.0)
         readonly property color cWhiteDim: Qt.rgba(Theme.colWhite.r, Theme.colWhite.g, Theme.colWhite.b, 0.1)
@@ -52,20 +52,20 @@ Variants {
         readonly property color cCloseHover: Qt.rgba(196/255, 43/255, 28/255, 1.0)
 
         // Center the window under the cursor, then clamp to this screen's
-        // own local bounds so it never gets cut off — same symmetric logic
+        // own local bounds so it never gets cut off, using the same logic
         // on both axes.
         margins {
             left: {
                 let localX = ClipboardState.cursorX - modelData.x;
-                let offset = ClipboardConfig.xOffset;
+                let offset = ClipboardSettings.xOffset;
                 let maxLeft = modelData.width - root.implicitWidth - 10;
                 return Math.max(10, Math.min(localX - root.implicitWidth - offset, maxLeft));
             }
 
-            //formula gave by AI - i dont know how it works , but it works...
+            // Clamp the popup to the current screen bounds.
             top: {
                 let localY = ClipboardState.cursorY - modelData.y;
-                let offset = ClipboardConfig.yOffset;
+                let offset = ClipboardSettings.yOffset;
                 let maxTop = modelData.height - root.implicitHeight - 10;
                 return Math.max(10, Math.min(localY - root.implicitHeight - offset, maxTop));
             }
@@ -88,14 +88,14 @@ Variants {
         Rectangle {
             anchors.fill: parent
             color: root.cBg
-            radius: ClipboardConfig.radius
-            border.color: root.cWhiteDim
-            border.width: 1
+            radius: ClipboardSettings.radius
+            border.color: ClipboardSettings.outerBorderColor
+            border.width: ClipboardSettings.outerBorderWidth
 
             ColumnLayout {
                 anchors.fill: parent
-                anchors.margins: ClipboardConfig.padX
-                spacing: ClipboardConfig.itemSpacing
+                anchors.margins: ClipboardSettings.padX
+                spacing: ClipboardSettings.itemSpacing
 
                 // Drag handle
                 Rectangle {
@@ -114,7 +114,7 @@ Variants {
                         text: "Clipboard"
                         color: root.cFg
                         font.family: root.fontFamily
-                        font.pixelSize: ClipboardConfig.headerFontSize
+                        font.pixelSize: ClipboardSettings.headerFontSize
                         font.weight: Font.DemiBold
                         Layout.fillWidth: true
                     }
@@ -294,7 +294,7 @@ Variants {
                         color: root.cFg
                         selectionColor: root.cAccentFill
                         font.family: root.fontFamily
-                        font.pixelSize: ClipboardConfig.itemFontSize
+                        font.pixelSize: ClipboardSettings.itemFontSize
                         clip: true
                         text: ClipboardState.searchQuery
 
@@ -304,7 +304,7 @@ Variants {
                             text: ClipboardState.currentMode === "emojis" ? "Search emojis…" : (ClipboardState.currentMode === "images" ? "Search images…" : "Search clipboard…")
                             color: root.cFgDim
                             font.family: root.fontFamily
-                            font.pixelSize: ClipboardConfig.itemFontSize
+                            font.pixelSize: ClipboardSettings.itemFontSize
                             visible: parent.text.length === 0 && !parent.activeFocus
                             anchors.verticalCenter: parent.verticalCenter
                         }
@@ -326,7 +326,7 @@ Variants {
                     visible: ClipboardState.currentMode === "images"
                     clip: true
                     cellWidth: (width - 10) / 2
-                    cellHeight: ClipboardConfig.imageCellHeight
+                    cellHeight: ClipboardSettings.imageCellHeight
                     model: ClipboardState.clipImageModel
 
                     ScrollBar.vertical: ScrollBar {
@@ -358,7 +358,7 @@ Variants {
                         text: "No images found"
                         color: root.cFgDim
                         font.family: root.fontFamily
-                        font.pixelSize: ClipboardConfig.itemFontSize
+                        font.pixelSize: ClipboardSettings.itemFontSize
                     }
 
                     delegate: Rectangle {
@@ -367,7 +367,7 @@ Variants {
                         required property string imagePath
 
                         implicitWidth: imageGridView.cellWidth - 4
-                        implicitHeight: ClipboardConfig.imageItemHeight
+                        implicitHeight: ClipboardSettings.imageItemHeight
                         radius: root.innerRadius
                         clip: true
                         color: imgArea.containsMouse ? root.cAccentFill : root.cWhiteBg
@@ -447,7 +447,7 @@ Variants {
                         text: ClipboardState.emojiProc.running ? "Loading emojis..." : "No emojis found"
                         color: root.cFgDim
                         font.family: root.fontFamily
-                        font.pixelSize: ClipboardConfig.itemFontSize
+                        font.pixelSize: ClipboardSettings.itemFontSize
                     }
 
                     delegate: Rectangle {
@@ -493,7 +493,7 @@ Variants {
                     visible: ClipboardState.currentMode === "text"
                     clip: true
                     model: ClipboardState.clipModel
-                    spacing: ClipboardConfig.itemSpacing
+                    spacing: ClipboardSettings.itemSpacing
 
                     ScrollBar.vertical: ScrollBar {
                         id: vbar
@@ -525,7 +525,7 @@ Variants {
                         text: "No history found"
                         color: root.cFgDim
                         font.family: root.fontFamily
-                        font.pixelSize: ClipboardConfig.itemFontSize
+                        font.pixelSize: ClipboardSettings.itemFontSize
                     }
 
                     delegate: Rectangle {
@@ -534,7 +534,7 @@ Variants {
                         required property string itemText
 
                         implicitWidth: listView.width - vbar.width
-                        implicitHeight: ClipboardConfig.itemHeight
+                        implicitHeight: ClipboardSettings.itemHeight
                         radius: 12
                         color: itemArea.containsMouse ? root.cAccentFill : root.cTransparent
                         border.color: itemArea.containsMouse ? root.cAccentHover : root.cTransparent
@@ -548,7 +548,7 @@ Variants {
                             text: itemCard.itemText
                             color: itemArea.containsMouse ? root.cFg : root.cFgDim
                             font.family: root.fontFamily
-                            font.pixelSize: ClipboardConfig.itemFontSize
+                            font.pixelSize: ClipboardSettings.itemFontSize
                             elide: Text.ElideRight
                             maximumLineCount: 2
                             wrapMode: Text.Wrap

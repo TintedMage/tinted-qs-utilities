@@ -23,7 +23,7 @@ Singleton {
     property var allClipText: []
     property var allClipImages: []
 
-    // Shared list models — populated once here
+    // Shared list models, populated once here.
     property ListModel clipModel: ListModel {}
     property ListModel clipImageModel: ListModel {}
     property ListModel emojiModel: ListModel {}
@@ -35,7 +35,7 @@ Singleton {
     onCurrentModeChanged: root.refreshActiveModel()
     onNormalizedQueryChanged: root.refreshActiveModel()
 
-    function refreshActiveModel(): void {
+    function refreshActiveModel() {
         if (currentMode === "emojis")
         root.sortEmojis();
         else if (currentMode === "text")
@@ -56,7 +56,7 @@ Singleton {
         : null;
     }
 
-    function toggle(): void {
+    function toggle() {
         if (root.activeScreen !== null) {
             root.hide();
         } else {
@@ -64,17 +64,17 @@ Singleton {
         }
     }
 
-    function show(): void {
+    function show() {
         if (!cursorProc.running)
         cursorProc.running = true;
     }
 
-    function hide(): void {
+    function hide() {
         root.activeScreen = null;
     }
 
     // Resets and populates clipboard models
-    function fetchClipboard(): void {
+    function fetchClipboard() {
         root.allClipText = [];
         root.allClipImages = [];
         clipModel.clear();
@@ -93,7 +93,7 @@ Singleton {
     }
 
     // Filters text bringing search matches directly into the model
-    function filterText(): void {
+    function filterText() {
         clipModel.clear();
 
         const q = root.normalizedQuery;
@@ -110,7 +110,7 @@ Singleton {
     }
 
     // Sorts emojis bringing search matches to the top
-    function sortEmojis(): void {
+    function sortEmojis() {
         const q = root.normalizedQuery;
         const source = root.allEmojis;
 
@@ -150,9 +150,9 @@ Singleton {
     property IpcHandler ipc: IpcHandler {
         target: "clipboard"
 
-        function toggle(): void { root.toggle(); }
-        function open(): void { root.show(); }
-        function close(): void { root.hide(); }
+        function toggle() { root.toggle(); }
+        function open() { root.show(); }
+        function close() { root.hide(); }
     }
 
     // Fetches cursor coordinates from Hyprland before opening
@@ -182,7 +182,7 @@ Singleton {
             root.searchQuery = "";
             root.fetchClipboard();
 
-            // Resolve the target screen once, here — the matching
+            // Resolve the target screen once. The matching
             // per-screen window then just checks its own `modelData`
             // against this value; no window ever migrates screens.
             root.activeScreen = root.screenForCursor(
@@ -193,7 +193,6 @@ Singleton {
     }
 
     // Fetches text items from cliphist
-    //
     // Text and image entries are intentionally collected from the same
     // cliphist snapshot. This avoids running `cliphist list` twice and,
     // more importantly, prevents the text/image views from observing
@@ -202,7 +201,7 @@ Singleton {
         command: [
         "sh",
         "-c",
-        `cliphist list | head -n ${ClipboardConfig.maxItems}`
+        `cliphist list | head -n ${ClipboardSettings.maxItems}`
         ]
 
         stdout: SplitParser {
@@ -249,13 +248,12 @@ Singleton {
     }
 
     // Extracts and decodes image entries
-    //
     // The image IDs come from the same `cliphist list` snapshot as the
     // text entries. This avoids a second history query racing the first
     // query and guarantees both views represent the same clipboard state.
-    function refreshImages(): void {
+    function refreshImages() {
         const images = root.allClipImages
-        .slice(0, ClipboardConfig.maxImageItems)
+        .slice(0, ClipboardSettings.maxImageItems)
         .filter(image => /^[0-9]+$/.test(image.itemId));
 
         if (images.length === 0)
@@ -271,7 +269,7 @@ Singleton {
         `
         set -u
 
-        cache="${ClipboardConfig.imageCacheDir}"
+        cache="${ClipboardSettings.imageCacheDir}"
         mkdir -p "$cache"
 
         valid="$cache/.active.$$"
@@ -381,7 +379,7 @@ Singleton {
         "sh",
         "-c",
         `cliphist decode "${targetId}" | wl-copy && ` +
-        `sleep ${ClipboardConfig.pasteDelay} && ` +
+        `sleep ${ClipboardSettings.pasteDelay} && ` +
         `ACTIVE_CLASS=$(hyprctl activewindow | awk '/^\\s*class:/ {print $2}') && ` +
         `if [[ "$ACTIVE_CLASS" =~ ^(kitty|Alacritty|foot|wezterm|konsole|ghostty)$ ]]; then ` +
         `    wtype -M shift -k Insert -m shift; ` +
@@ -398,7 +396,7 @@ Singleton {
         command: [
         "sh",
         "-c",
-        `sleep ${ClipboardConfig.emojiDelay} && printf "%s" "${targetEmoji}" | wtype -`
+        `sleep ${ClipboardSettings.emojiDelay} && printf "%s" "${targetEmoji}" | wtype -`
         ]
     }
 
@@ -407,7 +405,7 @@ Singleton {
         command: [
         "sh",
         "-c",
-        `cliphist wipe && rm -rf "${ClipboardConfig.imageCacheDir}"`
+        `cliphist wipe && rm -rf "${ClipboardSettings.imageCacheDir}"`
         ]
 
         onExited: {

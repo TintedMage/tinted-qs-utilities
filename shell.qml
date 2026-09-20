@@ -1,23 +1,13 @@
-// Shell.qml
+// shell.qml
 
 import Quickshell
 import QtQuick
-import "modules/app_launcher"
 import "modules/clipboard"
-import "modules/panels"
+import "modules/main_bar"
+import "modules/main_bar/widgets/app_launcher"
 
 ShellRoot {
-    Variants {
-        model: Quickshell.screens
-        AppLauncher {
-            required property var modelData
-            screen: modelData
-        }
-    }
-
+    AppLauncher {}
     Clipboard {}
-
-    // PanelBorder {}
-
-    FluidPanel {}
+    MainBar {}
 }
