@@ -1,6 +1,7 @@
 // Shell.qml
 
 import Quickshell
+import QtQuick
 import "modules/app_launcher"
 import "modules/clipboard"
 import "modules/panels"
@@ -16,7 +17,7 @@ ShellRoot {
 
     Clipboard {}
 
-    PanelBorder {}
-    TopCornerCurves {}
-    BottomCornerCurves {}
+    // PanelBorder {}
+
+    FluidPanel {}
 }

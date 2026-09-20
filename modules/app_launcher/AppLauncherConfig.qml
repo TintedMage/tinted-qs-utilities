@@ -12,7 +12,7 @@ QtObject {
     // ─────────────────────────────────────────────────────────────
 
     readonly property int width: 550
-    readonly property int height: 600
+    readonly property int height: 578
     readonly property int radius: 18
 
     readonly property int fontSize: 12
