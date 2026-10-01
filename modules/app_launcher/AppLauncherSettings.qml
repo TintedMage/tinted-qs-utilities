@@ -1,4 +1,4 @@
-// modules/main_bar/widgets/app_launcher/AppLauncherSettings.qml
+// modules/app_launcher/AppLauncherSettings.qml
 
 pragma Singleton
 import QtQuick
@@ -14,7 +14,7 @@ QtObject {
     readonly property int width: 550
     readonly property int height: 650
     readonly property real radius: Theme.radius
-    readonly property color fallbackBackgroundColor: "transparent"
+    readonly property color fallbackBackgroundColor: "black"
 
     readonly property int fontSize: 12
     readonly property int iconSize: 48

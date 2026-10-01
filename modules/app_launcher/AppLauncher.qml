@@ -1,4 +1,4 @@
-// modules/main_bar/widgets/app_launcher/AppLauncher.qml
+// modules/app_launcher/AppLauncher.qml
 
 import Quickshell
 import Quickshell.Wayland

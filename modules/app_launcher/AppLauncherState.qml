@@ -1,4 +1,4 @@
-// modules/main_bar/widgets/app_launcher/AppLauncherState.qml
+// modules/app_launcher/AppLauncherState.qml
 
 pragma Singleton
 import QtQuick
@@ -63,23 +63,23 @@ Singleton {
         const q = normalizedQuery
 
         if (q === "")
-            return []
+        return []
 
         return allApps.filter(e => {
-            if (e.name.toLowerCase().indexOf(q) !== -1)
+                if (e.name.toLowerCase().indexOf(q) !== -1)
                 return true
 
-            if (e.genericName && e.genericName.toLowerCase().indexOf(q) !== -1)
+                if (e.genericName && e.genericName.toLowerCase().indexOf(q) !== -1)
                 return true
 
-            if (e.keywords) {
-                for (let i = 0; i < e.keywords.length; i++) {
-                    if (e.keywords[i].toLowerCase().indexOf(q) !== -1)
+                if (e.keywords) {
+                    for (let i = 0; i < e.keywords.length; i++) {
+                        if (e.keywords[i].toLowerCase().indexOf(q) !== -1)
                         return true
+                    }
                 }
-            }
 
-            return false
+                return false
         }).sort((a, b) => a.name.localeCompare(b.name))
     }
 
@@ -132,7 +132,7 @@ Singleton {
         const entry = DesktopEntries.byId(appId)
 
         if (!entry)
-            return
+        return
 
         _recordRecent(appId)
         entry.execute()
@@ -148,12 +148,12 @@ Singleton {
         const index = list.indexOf(id)
 
         if (index !== -1)
-            list.splice(index, 1)
+        list.splice(index, 1)
 
         list.unshift(id)
 
         if (list.length > AppLauncherSettings.maxRecentApps)
-            list.length = AppLauncherSettings.maxRecentApps
+        list.length = AppLauncherSettings.maxRecentApps
 
         AppLauncherSettings._settings.recentIdsStr = JSON.stringify(list)
     }
