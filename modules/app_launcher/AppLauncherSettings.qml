@@ -32,7 +32,7 @@ QtObject {
     // Static defaults live above; persistent user data lives here.
 
     property var _settings: Settings {
-        location: Qt.resolvedUrl("AppLauncher.conf")
+        location: Qt.resolvedUrl("menu_entries.conf")
         category: "AppLauncher"
 
         property string recentIdsStr: "[]"
