@@ -12,7 +12,7 @@ QtObject {
     // AppLauncher configuration
 
     readonly property int width: 550
-    readonly property int height: 578
+    readonly property int height: 650
     readonly property real radius: Theme.radius
     readonly property color fallbackBackgroundColor: "transparent"
 
@@ -21,6 +21,9 @@ QtObject {
 
     readonly property int padX: 12
     readonly property int padY: 12
+
+    // Extra space to lift the launcher content when the main bar is docked to the bottom.
+    readonly property int bottomMargin: 12
 
     readonly property int maxRecentApps: 5
 
