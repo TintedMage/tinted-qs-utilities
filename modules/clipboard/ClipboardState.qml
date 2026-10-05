@@ -73,6 +73,33 @@ Singleton {
         root.activeScreen = null;
     }
 
+    // Helper method to paste a clipboard item by ID
+    function pasteItem(itemId) {
+        if (!itemId) return;
+        root.hide();
+        clipboardPasteProc.targetId = itemId;
+        clipboardPasteProc.updateCommand();
+        clipboardPasteProc.running = true;
+    }
+
+    // Helper method to copy an item without pasting
+    function copyItem(itemId) {
+        if (!itemId) return;
+        root.hide();
+        copyOnlyProc.targetId = itemId;
+        copyOnlyProc.updateCommand();
+        copyOnlyProc.running = true;
+    }
+
+    // Helper method to paste an emoji
+    function pasteEmoji(emojiChar) {
+        if (!emojiChar) return;
+        root.hide();
+        typeEmojiProc.targetEmoji = emojiChar;
+        typeEmojiProc.updateCommand();
+        typeEmojiProc.running = true;
+    }
+
     // Resets and populates clipboard models
     function fetchClipboard() {
         root.allClipText = [];
@@ -102,8 +129,7 @@ Singleton {
         for (let i = 0, count = items.length; i < count; ++i) {
             const item = items[i];
 
-            if (q.length === 0 ||
-                item.itemText.toLowerCase().includes(q)) {
+            if (q.length === 0 || item.itemText.toLowerCase().includes(q)) {
                 clipModel.append(item);
             }
         }
@@ -119,7 +145,6 @@ Singleton {
         if (q.length === 0) {
             for (let i = 0, count = source.length; i < count; ++i)
             emojiModel.append(source[i]);
-
             return;
         }
 
@@ -129,9 +154,7 @@ Singleton {
         for (let i = 0, count = source.length; i < count; ++i) {
             const item = source[i];
 
-            const matched =
-            item.emojiName.toLowerCase().includes(q) ||
-            item.emojiChar.includes(q);
+            const matched = item.emojiName.toLowerCase().includes(q) || item.emojiChar.includes(q);
 
             if (matched)
             matches.push(item);
@@ -182,9 +205,6 @@ Singleton {
             root.searchQuery = "";
             root.fetchClipboard();
 
-            // Resolve the target screen once. The matching
-            // per-screen window then just checks its own `modelData`
-            // against this value; no window ever migrates screens.
             root.activeScreen = root.screenForCursor(
                 root.cursorX,
                 root.cursorY
@@ -192,45 +212,32 @@ Singleton {
         }
     }
 
-    // Fetches text items from cliphist
-    // Text and image entries are intentionally collected from the same
-    // cliphist snapshot. This avoids running `cliphist list` twice and,
-    // more importantly, prevents the text/image views from observing
-    // different history snapshots.
+    // Fetches text and image list from cliphist safely
     property Process cliphistListProc: Process {
-        command: [
-        "sh",
-        "-c",
-        `cliphist list | head -n ${ClipboardSettings.maxItems}`
-        ]
+        command: ["sh", "-c", "cliphist list"]
 
         stdout: SplitParser {
             onRead: data => {
-                const line = data.trim();
-
-                if (!line)
+                if (root.allClipText.length + root.allClipImages.length >= ClipboardSettings.maxItems)
                 return;
+
+                const line = data.trim();
+                if (!line) return;
 
                 const tabIndex = line.indexOf("\t");
+                if (tabIndex === -1) return;
 
-                if (tabIndex === -1)
-                return;
-
-                const id = line.substring(0, tabIndex);
+                const id = line.substring(0, tabIndex).trim();
                 const text = line.substring(tabIndex + 1);
+
+                if (!id || !/^\d+$/.test(id)) return;
 
                 const lowerText = text.toLowerCase();
 
-                if (lowerText.startsWith("[[ binary data")) {
-                    const formatMatch = lowerText.match(
-                        /\b(jpeg|jpg|png|webp|bmp|gif|tiff)\b/
-                    );
-
+                if (lowerText.startsWith("[[ binary data") || lowerText.includes("binary data")) {
                     root.allClipImages.push({
-                            itemId: id,
-                            extension: formatMatch ? formatMatch[1] : "img"
+                            itemId: id
                     });
-
                     return;
                 }
 
@@ -247,63 +254,60 @@ Singleton {
         }
     }
 
-    // Extracts and decodes image entries
-    // The image IDs come from the same `cliphist list` snapshot as the
-    // text entries. This avoids a second history query racing the first
-    // query and guarantees both views represent the same clipboard state.
+    // Extracts and decodes image entries cleanly with automatic MIME detection
     function refreshImages() {
         const images = root.allClipImages
         .slice(0, ClipboardSettings.maxImageItems)
-        .filter(image => /^[0-9]+$/.test(image.itemId));
+        .filter(image => image.itemId && /^[0-9]+$/.test(image.itemId));
 
-        if (images.length === 0)
-        return;
+        if (images.length === 0) return;
 
-        const entries = images
-        .map(image => `${image.itemId}\t${image.extension}`)
-        .join("\n");
+        const entries = images.map(img => img.itemId).join("\n");
+
+        if (cliphistImageProc.running) {
+            cliphistImageProc.running = false;
+        }
 
         cliphistImageProc.command = [
         "sh",
         "-c",
         `
         set -u
-
         cache="${ClipboardSettings.imageCacheDir}"
         mkdir -p "$cache"
 
-        valid="$cache/.active.$$"
-        : > "$valid"
-
-        while IFS="$(printf '\\t')" read -r id ext; do
+        while IFS= read -r id; do
         [ -n "$id" ] || continue
 
-        output="$cache/$id.$ext"
-        printf '%s\\n' "$output" >> "$valid"
-
-        if [ ! -s "$output" ]; then
-        temp="$cache/.$id.$$.tmp"
-
-        if cliphist decode "$id" > "$temp" 2>/dev/null &&
-        [ -s "$temp" ]; then
-        mv -f "$temp" "$output"
-        else
-        rm -f "$temp"
+        existing=$(find "$cache" -maxdepth 1 -name "$id.*" ! -name '.*' 2>/dev/null | head -n 1)
+        if [ -n "$existing" ] && [ -s "$existing" ]; then
+        printf '%s\\t%s\\n' "$id" "$existing"
         continue
         fi
-        fi
 
+        temp="$cache/.$id.$$.tmp"
+        if cliphist decode "$id" > "$temp" 2>/dev/null && [ -s "$temp" ]; then
+        mime=$(file -b --mime-type "$temp" 2>/dev/null || echo "image/png")
+        case "$mime" in
+        image/jpeg) ext="jpg" ;;
+        image/png)  ext="png" ;;
+        image/webp) ext="webp" ;;
+        image/gif)  ext="gif" ;;
+        image/bmp)  ext="bmp" ;;
+        *)          ext="png" ;;
+        esac
+
+        output="$cache/$id.$ext"
+        mv -f "$temp" "$output"
         printf '%s\\t%s\\n' "$id" "$output"
+        else
+        rm -f "$temp"
+        fi
         done <<'EOF'
         ${entries}
         EOF
 
-        find "$cache" -maxdepth 1 -type f ! -name '.active.*' ! -name '.*.tmp' -print |
-        while IFS= read -r file; do
-        grep -Fqx "$file" "$valid" || rm -f "$file"
-        done
-
-        rm -f "$valid"
+        find "$cache" -maxdepth 1 -name '.*.tmp' -mtime +1 -delete 2>/dev/null || true
         `
         ];
 
@@ -311,29 +315,28 @@ Singleton {
     }
 
     property Process cliphistImageProc: Process {
-        command: ["sh", "-c", root.imageDecodeCommand]
-
         stdout: SplitParser {
             onRead: data => {
                 const line = data.trim();
-
-                if (!line)
-                return;
+                if (!line) return;
 
                 const tabIndex = line.indexOf("\t");
+                if (tabIndex === -1) return;
 
-                if (tabIndex === -1)
-                return;
+                const itemId = line.substring(0, tabIndex).trim();
+                const imagePath = line.substring(tabIndex + 1).trim();
 
-                const itemId = line.substring(0, tabIndex);
-                const imagePath = line.substring(tabIndex + 1);
+                if (!itemId || !imagePath) return;
 
-                if (!itemId || !imagePath)
-                return;
+                const fileUrl = imagePath.startsWith("file://") ? imagePath : "file://" + imagePath;
+
+                for (let i = 0; i < root.clipImageModel.count; ++i) {
+                    if (root.clipImageModel.get(i).itemId === itemId) return;
+                }
 
                 root.clipImageModel.append({
                         itemId: itemId,
-                        imagePath: imagePath
+                        imagePath: fileUrl
                 });
             }
         }
@@ -350,14 +353,10 @@ Singleton {
         stdout: SplitParser {
             onRead: data => {
                 const line = data.trim();
-
-                if (!line)
-                return;
+                if (!line) return;
 
                 const tabIndex = line.indexOf("\t");
-
-                if (tabIndex === -1)
-                return;
+                if (tabIndex === -1) return;
 
                 root.allEmojis.push({
                         emojiChar: line.substring(0, tabIndex),
@@ -371,33 +370,62 @@ Singleton {
         }
     }
 
-    // clipboard decode, copy, focus settle, and conditional paste automation
+    // Dynamic decode, copy, focus settle, and conditional paste process
     property Process clipboardPasteProc: Process {
         property string targetId: ""
 
-        command: [
-        "sh",
-        "-c",
-        `cliphist decode "${targetId}" | wl-copy && ` +
-        `sleep ${ClipboardSettings.pasteDelay} && ` +
-        `ACTIVE_CLASS=$(hyprctl activewindow | awk '/^\\s*class:/ {print $2}') && ` +
-        `if [[ "$ACTIVE_CLASS" =~ ^(kitty|Alacritty|foot|wezterm|konsole|ghostty)$ ]]; then ` +
-        `    wtype -M shift -k Insert -m shift; ` +
-        `else ` +
-        `    wtype -M ctrl -k v -m ctrl; ` +
-        `fi`
-        ]
+        onTargetIdChanged: updateCommand()
+
+        function updateCommand() {
+            if (!targetId) return;
+            command = [
+            "sh",
+            "-c",
+            `cliphist decode "${targetId}" | wl-copy && ` +
+            `cliphist decode "${targetId}" | wl-copy --primary && ` +
+            `sleep ${ClipboardSettings.pasteDelay} && ` +
+            `ACTIVE_CLASS=$(hyprctl activewindow -j | jq -r '.class // empty' 2>/dev/null || hyprctl activewindow | awk '/^\\s*class:/ {print $2}') && ` +
+            `if [[ "$ACTIVE_CLASS" =~ ^(kitty|Alacritty|foot|wezterm|konsole|ghostty|st|rxvt|terminal)$ ]]; then ` +
+            `    wtype -M ctrl -M shift -k v -m shift -m ctrl; ` +
+            `else ` +
+            `    wtype -M ctrl -k v -m ctrl; ` +
+            `fi`
+            ];
+        }
+    }
+
+    // Copy item to clipboard only without auto-pasting
+    property Process copyOnlyProc: Process {
+        property string targetId: ""
+
+        onTargetIdChanged: updateCommand()
+
+        function updateCommand() {
+            if (!targetId) return;
+            command = [
+            "sh",
+            "-c",
+            `cliphist decode "${targetId}" | wl-copy && ` +
+            `cliphist decode "${targetId}" | wl-copy --primary`
+            ];
+        }
     }
 
     // Direct emoji typing with focus settle delay
     property Process typeEmojiProc: Process {
         property string targetEmoji: ""
 
-        command: [
-        "sh",
-        "-c",
-        `sleep ${ClipboardSettings.emojiDelay} && printf "%s" "${targetEmoji}" | wtype -`
-        ]
+        onTargetEmojiChanged: updateCommand()
+
+        function updateCommand() {
+            if (!targetEmoji) return;
+            const safeEmoji = targetEmoji.replace(/\\/g, "\\\\").replace(/"/g, "\\\"");
+            command = [
+            "sh",
+            "-c",
+            `sleep ${ClipboardSettings.emojiDelay} && printf "%s" "${safeEmoji}" | wtype -`
+            ];
+        }
     }
 
     // Wipes clipboard history and cache
@@ -409,6 +437,10 @@ Singleton {
         ]
 
         onExited: {
+            root.allClipText = [];
+            root.allClipImages = [];
+            clipModel.clear();
+            clipImageModel.clear();
             root.confirmClear = false;
             root.fetchClipboard();
         }

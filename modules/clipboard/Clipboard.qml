@@ -379,11 +379,13 @@ Variants {
                         Image {
                             anchors.fill: parent
                             anchors.margins: 4
-                            source: "file://" + imgCard.imagePath
+                            source: imgCard.imagePath
                             fillMode: Image.PreserveAspectFit
                             asynchronous: true
                             cache: true
                             mipmap: true
+                            sourceSize.width: 256
+                            sourceSize.height: 256
 
                             // Keep a failed delegate from retaining a stale
                             // source when the history is refreshed.
@@ -398,11 +400,7 @@ Variants {
                             anchors.fill: parent
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
-                            onClicked: {
-                                ClipboardState.hide();
-                                ClipboardState.clipboardPasteProc.targetId = itemId;
-                                ClipboardState.clipboardPasteProc.running = true;
-                            }
+                            onClicked: ClipboardState.pasteItem(imgCard.itemId)
                         }
                     }
                 }
@@ -476,11 +474,7 @@ Variants {
                             anchors.fill: parent
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
-                            onClicked: {
-                                ClipboardState.hide();
-                                ClipboardState.typeEmojiProc.targetEmoji = emojiChar;
-                                ClipboardState.typeEmojiProc.running = true;
-                            }
+                            onClicked: ClipboardState.pasteEmoji(emojiCard.emojiChar)
                         }
                     }
                 }
@@ -559,11 +553,7 @@ Variants {
                             anchors.fill: parent
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
-                            onClicked: {
-                                ClipboardState.hide();
-                                ClipboardState.clipboardPasteProc.targetId = itemId;
-                                ClipboardState.clipboardPasteProc.running = true;
-                            }
+                            onClicked: ClipboardState.pasteItem(itemCard.itemId)
                         }
                     }
                 }
