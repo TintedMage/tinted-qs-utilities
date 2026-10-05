@@ -114,6 +114,7 @@ Singleton {
         cliphistImageProc.running = false;
 
         cliphistListProc.running = true;
+        root.refreshImages();
 
         if (root.allEmojis.length === 0 && !emojiProc.running)
         emojiProc.running = true;
@@ -248,25 +249,17 @@ Singleton {
             }
         }
 
-        onExited: {
-            root.filterText();
-            root.refreshImages();
-        }
+        onExited: root.filterText()
     }
 
-    // Extracts and decodes image entries cleanly with automatic MIME detection
+    // Builds the image model from its own fresh `cliphist list`, newest first.
+    // It no longer depends on the text list's parse/exit timing, so the
+    // most recent entry cannot be missed.
     function refreshImages() {
-        const images = root.allClipImages
-        .slice(0, ClipboardSettings.maxImageItems)
-        .filter(image => image.itemId && /^[0-9]+$/.test(image.itemId));
+        if (cliphistImageProc.running)
+        cliphistImageProc.running = false;
 
-        if (images.length === 0) return;
-
-        const entries = images.map(img => img.itemId).join("\n");
-
-        if (cliphistImageProc.running) {
-            cliphistImageProc.running = false;
-        }
+        clipImageModel.clear();
 
         cliphistImageProc.command = [
         "sh",
@@ -276,7 +269,11 @@ Singleton {
         cache="${ClipboardSettings.imageCacheDir}"
         mkdir -p "$cache"
 
-        while IFS= read -r id; do
+        cliphist list \
+        | grep -E '^[0-9]+[[:space:]]+\\[\\[ binary data' \
+        | head -n ${ClipboardSettings.maxImageItems} \
+        | cut -f1 \
+        | while IFS= read -r id; do
         [ -n "$id" ] || continue
 
         existing=$(find "$cache" -maxdepth 1 -name "$id.*" ! -name '.*' 2>/dev/null | head -n 1)
@@ -303,9 +300,7 @@ Singleton {
         else
         rm -f "$temp"
         fi
-        done <<'EOF'
-        ${entries}
-        EOF
+        done
 
         find "$cache" -maxdepth 1 -name '.*.tmp' -mtime +1 -delete 2>/dev/null || true
         `
