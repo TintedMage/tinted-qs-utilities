@@ -1,4 +1,4 @@
-// modules/screen_corners/Corners.qml
+// modules/screen_corners/ScreenCorners.qml
 
 import QtQuick
 import Quickshell
@@ -14,7 +14,7 @@ Variants {
         color: "transparent"
 
         WlrLayershell.namespace: "screenCorners"
-        WlrLayershell.layer: WlrLayer.Overlay
+        WlrLayershell.layer: WlrLayer.Bottom
         WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
 
         mask: Region {}
@@ -27,18 +27,18 @@ Variants {
         }
 
         // Per-edge border widths (top, right, bottom, left)
-        readonly property real topWidth: 0.5
-        readonly property real rightWidth: 1.2
-        readonly property real bottomWidth: 2
-        readonly property real leftWidth: 1.5
+        readonly property real topWidth: 3.4
+        readonly property real rightWidth: 4.5
+        readonly property real bottomWidth: 6.5
+        readonly property real leftWidth: 4.5
 
         // End-to-end pixel tilt offsets per edge
-        readonly property real topSlant: -0.8
-        readonly property real rightSlant: 2.5
+        readonly property real topSlant: -1
+        readonly property real rightSlant: 0
         readonly property real bottomSlant: 2
         readonly property real leftSlant: 0
 
-        readonly property int radius: 12
+        readonly property int radius: 16
         readonly property color borderColor: "black"
 
         ShaderEffect {

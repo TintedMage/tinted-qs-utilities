@@ -14,22 +14,21 @@ Singleton {
     property bool isVisible: false
     property string searchQuery: ""
 
-    // Shared with the main bar shader so the launcher is drawn
-    // as part of the bottom border. The panel draws the SHAPE, the launcher
-    // window draws the CONTENT; both read the same values below so they can
-    // never get out of step.
+    // Shared layout dimensions
 
     readonly property real launcherWidth: AppLauncherSettings.width
     readonly property real launcherHeight: AppLauncherSettings.height
     readonly property real cornerRadius: AppLauncherSettings.radius + 10
 
-    // 0 = hidden, 1 = fully open. The single slide animation lives here.
+    // Slide animation state
+
     property real reveal: isVisible ? 1 : 0
     Behavior on reveal {
         NumberAnimation { duration: 500; easing.type: Easing.OutCubic }
     }
 
-    // Persistent launcher data/configuration is owned by AppLauncherSettings.
+    // Persistent launcher configuration
+
     readonly property var recentIds: AppLauncherSettings.recentIds
 
     // Derived properties consumed by UI
@@ -38,27 +37,29 @@ Singleton {
     readonly property bool isSearching: normalizedQuery !== ""
     readonly property var currentModel: isSearching ? searchResults : defaultList
 
-    // Unfiltered raw applications data.
+    // Unfiltered raw applications list, bound directly to values for updates
     property var allApps: {
-        // Track applications object to force re-evaluation when Quickshell
-        // finishes asynchronous parsing.
-        let _track = DesktopEntries.applications
-        let arr = []
         let vals = DesktopEntries.applications.values
+        let arr = []
 
         for (let i = 0; i < vals.length; i++) {
-            arr.push(vals[i])
+            let entry = vals[i]
+            if (entry && entry.id) {
+                arr.push(entry)
+            }
         }
 
         return arr
     }
 
-    // Baseline alphabetical application list.
-    property var allAppsSorted: allApps.slice().sort(
-        (a, b) => a.name.localeCompare(b.name)
-    )
+    // Baseline alphabetical application list
+    property var allAppsSorted: allApps.slice().sort((a, b) => {
+            if (!a || !a.name) return -1
+            if (!b || !b.name) return 1
+            return a.name.localeCompare(b.name)
+    })
 
-    // List generated against active user query.
+    // List generated against active user query
     property var searchResults: {
         const q = normalizedQuery
 
@@ -66,6 +67,9 @@ Singleton {
         return []
 
         return allApps.filter(e => {
+                if (!e || !e.name)
+                return false
+
                 if (e.name.toLowerCase().indexOf(q) !== -1)
                 return true
 
@@ -74,36 +78,39 @@ Singleton {
 
                 if (e.keywords) {
                     for (let i = 0; i < e.keywords.length; i++) {
-                        if (e.keywords[i].toLowerCase().indexOf(q) !== -1)
+                        if (e.keywords[i] && e.keywords[i].toLowerCase().indexOf(q) !== -1)
                         return true
                     }
                 }
 
                 return false
-        }).sort((a, b) => a.name.localeCompare(b.name))
+        }).sort((a, b) => {
+                if (!a || !a.name) return -1
+                if (!b || !b.name) return 1
+                return a.name.localeCompare(b.name)
+        })
     }
 
-    // Resolves entry models based on persistent ID records.
+    // Resolves entry models based on persistent ID records
     property var recentApps: {
-        let _trackApps = DesktopEntries.applications
+        let _track = allApps
         let _trigger = isVisible
-
         let result = []
 
         for (let i = 0; i < recentIds.length; i++) {
             let entry = DesktopEntries.byId(recentIds[i])
-            if (entry)
+            if (entry && entry.id)
             result.push(entry)
         }
 
         return result
     }
 
-    // Default view: recents first, remaining apps alphabetically.
+    // Default view: recents first, remaining apps alphabetically
     property var defaultList: {
         let recents = recentApps
         let others = allAppsSorted.filter(
-            app => recentIds.indexOf(app.id) === -1
+            app => app && app.id && recentIds.indexOf(app.id) === -1
         )
 
         return recents.concat(others)
