@@ -16,16 +16,54 @@ Singleton {
 
     // Shared layout dimensions
 
-    readonly property real launcherWidth: AppLauncherSettings.width
-    readonly property real launcherHeight: AppLauncherSettings.height
+    // Current size (resizable, persisted)
+    property real launcherWidth: AppLauncherSettings._settings.savedW > 0 ? AppLauncherSettings._settings.savedW : AppLauncherSettings.width
+    property real launcherHeight: AppLauncherSettings._settings.savedH > 0 ? AppLauncherSettings._settings.savedH : AppLauncherSettings.height
+    property bool resizing: false
     readonly property real cornerRadius: AppLauncherSettings.radius + 10
 
-    // Slide animation state
+    // Floating position (top-left of the launcher, in screen coordinates).
+    // -1 means "not placed yet": the UI centers the launcher on screen.
+    property real posX: AppLauncherSettings._settings.posX
+    property real posY: AppLauncherSettings._settings.posY
+    property bool dragging: false
 
-    property real reveal: isVisible ? 1 : 0
-    Behavior on reveal {
-        NumberAnimation { duration: 500; easing.type: Easing.OutCubic }
+    function setPosition(x, y) {
+        posX = x
+        posY = y
     }
+
+    // Persist the current position (called when a drag ends)
+    function savePosition() {
+        AppLauncherSettings._settings.posX = posX
+        AppLauncherSettings._settings.posY = posY
+    }
+
+    function setGeometry(x, y, w, h) {
+        posX = x
+        posY = y
+        launcherWidth = w
+        launcherHeight = h
+    }
+
+    // Persist position and size (called when a drag/resize ends)
+    function saveGeometry() {
+        savePosition()
+        AppLauncherSettings._settings.savedW = launcherWidth
+        AppLauncherSettings._settings.savedH = launcherHeight
+    }
+
+    // Back to centered, default size
+    function resetPosition() {
+        launcherWidth = AppLauncherSettings.width
+        launcherHeight = AppLauncherSettings.height
+        setPosition(-1, -1)
+        saveGeometry()
+    }
+
+    // Visibility as a number (no animation, flips instantly)
+
+    readonly property real reveal: isVisible ? 1 : 0
 
     // Persistent launcher configuration
 

@@ -28,8 +28,7 @@ QtObject {
     readonly property int imageCellHeight: 96
     readonly property int imageItemHeight: 88
 
-    readonly property real backgroundOpacity: 0.8
-
+    readonly property real backgroundOpacity: Theme.backgroundOpacity
 
     // Clipboard history limits
 

@@ -28,7 +28,7 @@ Variants {
 
         // Per-edge border widths (top, right, bottom, left)
         readonly property real topWidth: 3.4
-        readonly property real rightWidth: 4.5
+        readonly property real rightWidth: 3.5
         readonly property real bottomWidth: 6.5
         readonly property real leftWidth: 4.5
 

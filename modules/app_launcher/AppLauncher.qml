@@ -26,8 +26,8 @@ Variants {
         }
 
         // Wayland layer configuration
-        // Must stay full-screen and line up pixel-for-pixel with the panel window that draws the
-        // launcher's shape, so ignore the exclusive zones of the bar/border windows.
+        // Full-screen overlay so the floating launcher can be dragged anywhere and clicking
+        // outside closes it. Ignore the exclusive zones of the bar/border windows.
         exclusionMode: ExclusionMode.Ignore
         WlrLayershell.layer: WlrLayer.Overlay
         WlrLayershell.keyboardFocus: AppLauncherState.isVisible ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
@@ -65,6 +65,7 @@ Variants {
         readonly property int scaledIconSize: AppLauncherSettings.iconSize
 
         // Cached theme colors used frequently by delegates/effects.
+        readonly property color cBg: Qt.rgba(Theme.colBg.r, Theme.colBg.g, Theme.colBg.b, AppLauncherSettings.backgroundOpacity)
         readonly property color accentFill: Qt.rgba(Theme.colAccent.r, Theme.colAccent.g, Theme.colAccent.b, 0.18)
         readonly property color accentIcon: Qt.rgba(Theme.colAccent.r, Theme.colAccent.g, Theme.colAccent.b, 0.28)
         readonly property color white07: Qt.rgba(Theme.colWhite.r, Theme.colWhite.g, Theme.colWhite.b, 0.07)
@@ -128,15 +129,29 @@ Variants {
             onClicked: AppLauncherState.hide()
         }
 
-        // Main launcher
-        // Content only. The background (fill, rounded top corners, and the curved joins into the
-        // bottom border) is drawn by the main bar shader.
+        // Keeps the launcher fully on screen
+        function clampX(v) { return Math.max(0, Math.min(v, root.width - root.launcherW)) }
+        function clampY(v) { return Math.max(0, Math.min(v, root.height - root.launcherH)) }
+
+        // Snap the launcher to a screen position. h/v: -1 = left/top, 0 = center, 1 = right/bottom
+        function anchorTo(h, v) {
+            const m = AppLauncherSettings.anchorMargin
+            const x = h < 0 ? m : (h > 0 ? root.width - root.launcherW - m : (root.width - root.launcherW) / 2)
+            const y = v < 0 ? m : (v > 0 ? root.height - root.launcherH - m : (root.height - root.launcherH) / 2)
+            AppLauncherState.setPosition(root.clampX(x), root.clampY(y))
+            AppLauncherState.savePosition()
+        }
+
+        // Main launcher (floating window, draws its own background)
         Item {
             id: appLauncherUI
             width: root.launcherW
             height: root.launcherH
-            anchors.horizontalCenter: parent.horizontalCenter
-            anchors.bottom: parent.bottom
+
+            x: root.clampX(AppLauncherState.posX < 0 ? (root.width - width) / 2 : AppLauncherState.posX)
+            y: root.clampY(AppLauncherState.posY < 0 ? (root.height - height) / 2 : AppLauncherState.posY)
+
+            visible: AppLauncherState.isVisible
 
             // Intercept clicks inside launcher container
             MouseArea {
@@ -144,18 +159,26 @@ Variants {
                 onClicked: settingsPopup.open = false
             }
 
-            // Slide up/down: driven by the same value the panel uses for the shape
-            transform: Translate {
-                y: (1 - AppLauncherState.reveal) * root.launcherH
+            // Background surface
+            Rectangle {
+                id: bgSurface
+                anchors.fill: parent
+                radius: AppLauncherState.cornerRadius
+                color: root.cBg
+                border.width: 1
+                border.color: Qt.rgba(Theme.colAccent.r, Theme.colAccent.g, Theme.colAccent.b, 0.3)
+                visible: false
             }
 
-            // Optional fallback surface for running the launcher without MainBar.
-            // Keep transparent to let the main bar shader draw the launcher shape.
-            Rectangle {
-                id: fallbackSurface
-                anchors.fill: parent
-                color: AppLauncherSettings.fallbackBackgroundColor
-                radius: root.radiusScaled
+            // Renders the surface with a soft drop shadow so it reads as floating
+            MultiEffect {
+                anchors.fill: bgSurface
+                source: bgSurface
+                shadowEnabled: true
+                shadowColor: "black"
+                shadowOpacity: 0.55
+                shadowBlur: 1.0
+                shadowVerticalOffset: 8
                 z: -1
             }
 
@@ -176,14 +199,6 @@ Variants {
                     height: 180
                     radius: root.radiusScaled
                     color: root.white07
-
-                    // Close settings popup when cursor leaves wallpaper header area
-                    HoverHandler {
-                        id: headerHover
-                        onHoveredChanged: {
-                            if (!hovered) settingsPopup.open = false
-                        }
-                    }
 
                     // Source wallpaper image
                     Image {
@@ -210,6 +225,40 @@ Variants {
                         visible: AppLauncherState.isVisible
                     }
 
+                    // Drag the launcher by grabbing the header
+                    MouseArea {
+                        id: headerDrag
+                        anchors.fill: parent
+                        cursorShape: AppLauncherState.dragging ? Qt.ClosedHandCursor : Qt.OpenHandCursor
+                        acceptedButtons: Qt.LeftButton
+
+                        property real pressX: 0
+                        property real pressY: 0
+
+                        onPressed: function (mouse) {
+                            pressX = mouse.x
+                            pressY = mouse.y
+                            AppLauncherState.dragging = true
+                            settingsPopup.open = false
+                        }
+
+                        onPositionChanged: function (mouse) {
+                            if (!pressed) return
+                            // The item moves with the cursor, so mouse.x/y are relative to the
+                            // moving header: shifting by the delta keeps the grab point fixed.
+                            AppLauncherState.setPosition(
+                                root.clampX(appLauncherUI.x + mouse.x - pressX),
+                                root.clampY(appLauncherUI.y + mouse.y - pressY))
+                        }
+
+                        onReleased: {
+                            AppLauncherState.dragging = false
+                            AppLauncherState.savePosition()
+                        }
+
+                        onCanceled: AppLauncherState.dragging = false
+                    }
+
                     // Settings button
                     Item {
                         id: settingsBtn
@@ -231,7 +280,6 @@ Variants {
                                 family: Theme.fontFamily
                             }
 
-                            Behavior on color { ColorAnimation { duration: 150 } }
                         }
 
                         MouseArea {
@@ -240,62 +288,6 @@ Variants {
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
                             onClicked: settingsPopup.open = !settingsPopup.open
-                        }
-                    }
-
-                    // Settings popup menu
-                    Rectangle {
-                        id: settingsPopup
-                        property bool open: false
-
-                        anchors {
-                            top: settingsBtn.bottom
-                            topMargin: 4
-                            right: settingsBtn.right
-                        }
-                        width: 130
-                        height: 36
-                        radius: 8
-                        z: 100
-                        color: Qt.rgba(Theme.colBg.r, Theme.colBg.g, Theme.colBg.b, 0.95)
-                        border.color: Qt.rgba(Theme.colAccent.r, Theme.colAccent.g, Theme.colAccent.b, 0.3)
-                        border.width: 1
-
-                        opacity: open ? 1.0 : 0.0
-                        visible: opacity > 0
-                        scale: open ? 1.0 : 0.95
-
-                        Behavior on opacity { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
-                        Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
-
-                        Rectangle {
-                            anchors.fill: parent
-                            anchors.margins: 4
-                            radius: 6
-                            color: clearMouse.containsMouse
-                            ? Qt.rgba(Theme.colWhite.r, Theme.colWhite.g, Theme.colWhite.b, 0.1)
-                            : "transparent"
-
-                            Text {
-                                anchors.centerIn: parent
-                                text: "Clear recent"
-                                color: Qt.rgba(Theme.colFg.r, Theme.colFg.g, Theme.colFg.b, 0.9)
-                                font {
-                                    pixelSize: 12
-                                    family: Theme.fontFamily
-                                }
-                            }
-
-                            MouseArea {
-                                id: clearMouse
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: {
-                                    AppLauncherState.clearRecents()
-                                    settingsPopup.open = false
-                                }
-                            }
                         }
                     }
 
@@ -493,9 +485,6 @@ Variants {
                             radius: root.radiusScaled
                             color: appRow.sel ? root.accentFill : "transparent"
 
-                            Behavior on color {
-                                ColorAnimation { duration: 100 }
-                            }
 
                             Row {
                                 anchors {
@@ -524,9 +513,6 @@ Variants {
                                             0.08
                                     ))
 
-                                    Behavior on color {
-                                        ColorAnimation { duration: 100 }
-                                    }
 
                                     Image {
                                         id: appIcon
@@ -646,6 +632,222 @@ Variants {
                     }
                 }
 
+            }
+
+            // Corner resize handles
+            Repeater {
+                model: [
+                { left: true,  top: true  },
+                { left: false, top: true  },
+                { left: true,  top: false },
+                { left: false, top: false }
+                ]
+
+                delegate: MouseArea {
+                    id: grip
+                    required property var modelData
+
+                    readonly property bool onLeft: modelData.left
+                    readonly property bool onTop: modelData.top
+
+                    width: 22
+                    height: 22
+                    x: onLeft ? 0 : appLauncherUI.width - width
+                    y: onTop ? 0 : appLauncherUI.height - height
+                    z: 50
+                    acceptedButtons: Qt.LeftButton
+                    cursorShape: (onLeft === onTop) ? Qt.SizeFDiagCursor : Qt.SizeBDiagCursor
+
+                    property point startScene
+                    property real sx: 0
+                    property real sy: 0
+                    property real sw: 0
+                    property real sh: 0
+
+                    onPressed: function (mouse) {
+                        startScene = mapToItem(null, mouse.x, mouse.y)
+                        sx = appLauncherUI.x
+                        sy = appLauncherUI.y
+                        sw = appLauncherUI.width
+                        sh = appLauncherUI.height
+                        AppLauncherState.resizing = true
+                        settingsPopup.open = false
+                    }
+
+                    onPositionChanged: function (mouse) {
+                        if (!pressed) return
+
+                        // Scene coordinates: stable even though the handle moves while resizing
+                        const p = mapToItem(null, mouse.x, mouse.y)
+                        const dx = p.x - startScene.x
+                        const dy = p.y - startScene.y
+
+                        const minW = AppLauncherSettings.minWidth
+                        const minH = AppLauncherSettings.minHeight
+
+                        // Width: grow toward the dragged edge, never past the screen
+                        const maxW = onLeft ? sx + sw : root.width - sx
+                        const maxH = onTop ? sy + sh : root.height - sy
+
+                        const w = Math.max(minW, Math.min(sw + (onLeft ? -dx : dx), Math.max(minW, maxW)))
+                        const h = Math.max(minH, Math.min(sh + (onTop ? -dy : dy), Math.max(minH, maxH)))
+
+                        // Dragging a left/top corner keeps the opposite edge anchored
+                        const x = onLeft ? sx + sw - w : sx
+                        const y = onTop ? sy + sh - h : sy
+
+                        AppLauncherState.setGeometry(x, y, w, h)
+                    }
+
+                    onReleased: {
+                        AppLauncherState.resizing = false
+                        AppLauncherState.saveGeometry()
+                    }
+
+                    onCanceled: AppLauncherState.resizing = false
+                }
+            }
+
+            // Settings popup menu (lives outside the header so it is not clipped)
+            Rectangle {
+                id: settingsPopup
+                property bool open: false
+
+                anchors {
+                    top: parent.top
+                    topMargin: 64
+                    right: parent.right
+                    rightMargin: 28
+                }
+                width: 168
+                height: popupCol.implicitHeight + 16
+                radius: 10
+                z: 100
+                color: Qt.rgba(Theme.colBg.r, Theme.colBg.g, Theme.colBg.b, 0.97)
+                border.color: Qt.rgba(Theme.colAccent.r, Theme.colAccent.g, Theme.colAccent.b, 0.3)
+                border.width: 1
+
+                visible: open
+
+                // Swallow clicks on empty popup space
+                MouseArea { anchors.fill: parent }
+
+                Column {
+                    id: popupCol
+                    anchors {
+                        top: parent.top
+                        left: parent.left
+                        right: parent.right
+                        margins: 8
+                    }
+                    spacing: 4
+
+                    Text {
+                        text: "Position"
+                        color: Theme.colFgDim
+                        leftPadding: 4
+                        font {
+                            pixelSize: 10
+                            family: Theme.fontFamily
+                        }
+                    }
+
+                    // 3x3 anchor grid: corners, edges and center
+                    Grid {
+                        columns: 3
+                        spacing: 4
+                        anchors.horizontalCenter: parent.horizontalCenter
+
+                        Repeater {
+                            model: [
+                            { h: -1, v: -1, glyph: "\u2196" }, { h: 0, v: -1, glyph: "\u2191" }, { h: 1, v: -1, glyph: "\u2197" },
+                            { h: -1, v:  0, glyph: "\u2190" }, { h: 0, v:  0, glyph: "\u25cf" }, { h: 1, v:  0, glyph: "\u2192" },
+                            { h: -1, v:  1, glyph: "\u2199" }, { h: 0, v:  1, glyph: "\u2193" }, { h: 1, v:  1, glyph: "\u2198" }
+                            ]
+
+                            delegate: Rectangle {
+                                required property var modelData
+
+                                width: Math.floor((popupCol.width - 8) / 3)
+                                height: 28
+                                radius: 6
+                                color: anchorMouse.containsMouse
+                                ? Qt.rgba(Theme.colAccent.r, Theme.colAccent.g, Theme.colAccent.b, 0.25)
+                                : Qt.rgba(Theme.colWhite.r, Theme.colWhite.g, Theme.colWhite.b, 0.06)
+
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: parent.modelData.glyph
+                                    color: Theme.colFg
+                                    font {
+                                        pixelSize: 14
+                                        family: Theme.fontFamily
+                                    }
+                                }
+
+                                MouseArea {
+                                    id: anchorMouse
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: {
+                                        root.anchorTo(parent.modelData.h, parent.modelData.v)
+                                        settingsPopup.open = false
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        width: parent.width
+                        height: 1
+                        color: Qt.rgba(Theme.colWhite.r, Theme.colWhite.g, Theme.colWhite.b, 0.1)
+                    }
+
+                    Repeater {
+                        model: [
+                        { label: "Reset layout", action: "reset" },
+                        { label: "Clear recent", action: "clear" }
+                        ]
+
+                        delegate: Rectangle {
+                            required property var modelData
+
+                            width: popupCol.width
+                            height: 28
+                            radius: 6
+                            color: itemMouse.containsMouse
+                            ? Qt.rgba(Theme.colWhite.r, Theme.colWhite.g, Theme.colWhite.b, 0.1)
+                            : "transparent"
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: parent.modelData.label
+                                color: Qt.rgba(Theme.colFg.r, Theme.colFg.g, Theme.colFg.b, 0.9)
+                                font {
+                                    pixelSize: 12
+                                    family: Theme.fontFamily
+                                }
+                            }
+
+                            MouseArea {
+                                id: itemMouse
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: {
+                                    if (parent.modelData.action === "clear")
+                                    AppLauncherState.clearRecents()
+                                    else
+                                    AppLauncherState.resetPosition()
+                                    settingsPopup.open = false
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }

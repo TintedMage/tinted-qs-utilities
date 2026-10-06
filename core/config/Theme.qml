@@ -19,7 +19,6 @@ QtObject {
     readonly property real radius: 13
 
     // Global translucent surface opacity.
-    property real backgroundOpacity: 1
-    readonly property color surfaceColor: Qt.rgba(colBg.r,  colBg.g, colBg.b, backgroundOpacity)
+    property real backgroundOpacity: 0.8
 
 }
